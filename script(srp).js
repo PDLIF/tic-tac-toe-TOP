@@ -25,12 +25,6 @@ const Gameboard = (function () {
 
 
 
-
-
-
-
-
-
 const Player = function (marker) {
     let score = 0;
 
@@ -52,12 +46,6 @@ const Player = function (marker) {
 
     return {getMarker, getScore, increaseScore, resetScore};
 }
-
-
-
-
-
-
 
 
 
@@ -97,19 +85,19 @@ const DOMController = (function() {
 
 
 
-
-
-
 const GameFlowController = (function() {
     let gameActive = false;
+    let currentPlayer;
     const playerX = Player('X');
     const playerO = Player('O');
-    let currentPlayer = playerX;
+    let nextStartingPlayer = playerX;
 
     function initializeGameState() {
         Gameboard.resetBoard();
-        currentPlayer = playerX ? playerO : playerX;
+        DOMController.clearBoard();
+        currentPlayer = nextStartingPlayer;
         gameActive = true;
+        switchStartingPlayer();
     }
 
     function resetScores() {
@@ -136,6 +124,10 @@ const GameFlowController = (function() {
     function getCurrentPlayer() {
         return currentPlayer;
     }
+
+    function switchStartingPlayer() {
+        nextStartingPlayer = nextStartingPlayer === playerX ? playerO : playerX;   
+    }
     
     return { initializeGameState, resetScores, switchTurn, activateGame, deactivateGame, getGameActive, getCurrentPlayer }
 })();
@@ -147,31 +139,30 @@ const GameFlowController = (function() {
 
 const UserInputHandler = (function() {
     function playTurn(event) {
-        if (!GameFlowController.gameActive) return;
+        if (!GameFlowController.getGameActive()) return;
         const index = parseInt(event.target.id.split('-')[1]);
-        const marker = currentPlayer.getMarker();
-        const currentPlayer = GameFlowController.getCurrentPlayer();
+        const marker = GameFlowController.getCurrentPlayer().getMarker();
 
         const success = Gameboard.placeMarker(index, marker);
 
         if (success) {
             DOMController.updateCell(index, marker);
 
-            if (checkWinner()) {
-                DOMController.showWinner(currentPlayer.getMarker());
-                GameFlowController.currentPlayer.increaseScore();
-                DOMController.updateScore(currentPlayer.getMarker(), currentPlayer.getScore());
+            if (GameStateChecker.checkWinner()) {
+                DOMController.showWinner(GameFlowController.getCurrentPlayer().getMarker());
+                GameFlowController.getCurrentPlayer().increaseScore();
+                DOMController.updateScore(GameFlowController.getCurrentPlayer().getMarker(), GameFlowController.getCurrentPlayer().getScore());
                 GameFlowController.deactivateGame();
                 return true;
             }
-            if (isTie()) {
+            if (GameStateChecker.checkTie()) {
                 DOMController.showTie();
                 GameFlowController.deactivateGame();
                 return true;
             }
 
-            switchTurn();
-            DOMController.showTurnInfo(`Player ${currentPlayer.getMarker()}'s turn`);
+            GameFlowController.switchTurn();
+            DOMController.showTurnInfo(`Player ${GameFlowController.getCurrentPlayer().getMarker()}'s turn`);
         }
     }
 
@@ -194,13 +185,6 @@ const UserInputHandler = (function() {
 
 
 
-
-
-
-
-
-
-
 const GameStateChecker = (function() {
     function checkWinner() {
         const winningCombos = [
@@ -212,7 +196,7 @@ const GameStateChecker = (function() {
         const board = Gameboard.getBoard();
 
         return winningCombos.some(combo => {
-            combo.every(index => board[index] === GameFlowController.getCurrentPlayer().getMarker());
+            return combo.every(index => board[index] === GameFlowController.getCurrentPlayer().getMarker());
         });
     }
 
@@ -227,10 +211,6 @@ const GameStateChecker = (function() {
 
 
 
-
-
-
-
 const GameController = ( function() {
     function startGame() {
         GameFlowController.initializeGameState();
@@ -239,11 +219,15 @@ const GameController = ( function() {
             element.addEventListener('click', UserInputHandler.playTurn);
         });
 
-        document.querySelector('#restart-button').addEventListener('click', UserInputHandler.restartGame());//             adding event listeners for "restart" and "next round" buttons
-        document.querySelector('#next-round-button').addEventListener('click', UserInputHandler.playNextRound());
+        document.querySelector('#restart-button').addEventListener('click', UserInputHandler.restartGame);//             adding event listeners for "restart" and "next round" buttons
+        document.querySelector('#next-round-button').addEventListener('click', UserInputHandler.playNextRound);
     }
 
     return { startGame }
 })();
+
+
+
+
 
 GameController.startGame();
